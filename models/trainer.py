@@ -25,18 +25,18 @@ class Trainer:
     """
 
     def __init__(
-        self,
-        model,
-        train_loader,
-        val_loader,
-        optimizer,
-        scheduler,
-        criterion,
-        device,
-        checkpoint_dir="checkpoints",
-        patience=2,
-    ):
-
+    self,
+    model,
+    tokenizer,
+    train_loader,
+    val_loader,
+    optimizer,
+    scheduler,
+    criterion,
+    device,
+    checkpoint_dir="checkpoints",
+    patience=3,
+):
         self.model = model.to(device)
 
         self.train_loader = train_loader

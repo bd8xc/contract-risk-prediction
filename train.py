@@ -62,26 +62,19 @@ val_dataset = ContractRiskDataset(
 ##############################################################
 # DATALOADERS
 ##############################################################
-
-from torch.utils.data import DataLoader, Subset
-
-train_subset = Subset(train_dataset, range(32))
-val_subset = Subset(val_dataset, range(16))
-
 train_loader = DataLoader(
-    train_subset,
+    train_dataset,
     batch_size=cfg.batch_size,
     shuffle=True,
     collate_fn=sliding_window_collate,
 )
 
 val_loader = DataLoader(
-    val_subset,
+    val_dataset,
     batch_size=cfg.batch_size,
     shuffle=False,
     collate_fn=sliding_window_collate,
 )
-
 ##############################################################
 # MODEL
 ##############################################################

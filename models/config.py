@@ -37,7 +37,7 @@ class Config:
 
     batch_size: int = 4
 
-    epochs: int = 5
+    epochs: int = 10
 
     learning_rate: float = 2e-5
 
@@ -47,7 +47,7 @@ class Config:
 
     gradient_clip: float = 1.0
 
-    patience: int = 2
+    patience: int = 3
 
     #########################################################
     # CLASS WEIGHTS
