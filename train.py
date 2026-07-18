@@ -58,7 +58,7 @@ val_dataset = ContractRiskDataset(
     max_length=cfg.max_length,
     stride=cfg.stride,
 )
-
+tokenizer = train_dataset.tokenizer
 ##############################################################
 # DATALOADERS
 ##############################################################
@@ -128,6 +128,7 @@ scheduler = get_linear_schedule_with_warmup(
 
 trainer = Trainer(
     model=model,
+    tokenizer=tokenizer,
     train_loader=train_loader,
     val_loader=val_loader,
     optimizer=optimizer,
