@@ -12,6 +12,12 @@ __pycache__/
 runs/
 checkpoints/
 
+# Generated Analysis Outputs
+outputs/
+
+# Temporary Debug Files
+debug_pdf.py
+
 # Jupyter
 .ipynb_checkpoints/
 
