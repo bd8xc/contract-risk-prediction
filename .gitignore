@@ -1,26 +1,42 @@
-# Virtual Environment
+# Virtual environment
 .venv/
+venv/
 
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyd
 
-# VS Code
+# IDE
 .vscode/
+.idea/
 
-# Training Outputs
-runs/
-checkpoints/
+# Environment / secrets
+.env
+*.env
 
-# Generated Analysis Outputs
-outputs/
+# Hugging Face / caches
+.cache/
+.cache_*/
+huggingface/
 
-# Temporary Debug Files
-debug_pdf.py
+# Model checkpoints / large binaries
+*.pt
+*.pth
+*.ckpt
+*.bin
+*.safetensors
 
-# Jupyter
-.ipynb_checkpoints/
+# Raw downloaded legal source PDFs
+knowledge_base/raw_sources/*.pdf
 
-# OS Files
+# Temporary/debug files
+*.log
 .DS_Store
 Thumbs.db
+# Debug / temporary files
+debug_pdf.py
+knowledge_base/processed/test_principles.json
+
+# TensorBoard training logs
+runs/

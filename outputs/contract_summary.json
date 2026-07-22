@@ -1,0 +1,63 @@
+{
+    "file_name": "contract.pdf",
+    "page_count": 3,
+    "word_count": 700,
+    "total_extracted_units": 29,
+    "analyzed_clauses": 28,
+    "skipped_clauses": 1,
+    "prediction_counts": {
+        "Seed": 21,
+        "Low": 0,
+        "Medium": 4,
+        "High": 3
+    },
+    "high_risk_count": 3,
+    "medium_risk_count": 4,
+    "high_risk_clauses": [
+        {
+            "clause_number": "7.3",
+            "heading": "TERMINATION",
+            "text": "Upon termination, each party shall return or securely destroy the other party's confidential information, subject to legal retention obligations.",
+            "model_score": 0.8747783899307251
+        },
+        {
+            "clause_number": "8.1",
+            "heading": "INDEMNIFICATION",
+            "text": "The Supplier shall indemnify and hold harmless the Customer against all claims, damages, losses, liabilities, costs, and expenses arising from the Supplier's material breach of this Agreement.",
+            "model_score": 0.9988774657249451
+        },
+        {
+            "clause_number": "8.2",
+            "heading": "INDEMNIFICATION",
+            "text": "Notwithstanding any other provision, the Supplier shall be liable for all losses arising from its obligations under this Section without limitation or monetary cap.",
+            "model_score": 0.6519250869750977
+        }
+    ],
+    "medium_risk_clauses": [
+        {
+            "clause_number": "1.1",
+            "heading": "SERVICES",
+            "text": "The Supplier shall provide the services described in mutually executed statements of work. Each statement of work shall specify the scope, deliverables, milestones, fees, and applicable acceptance criteria.",
+            "model_score": 0.9975072741508484
+        },
+        {
+            "clause_number": "2.2",
+            "heading": "FEES AND PAYMENT",
+            "text": "If the Customer disputes an invoice in good faith, it shall notify the Supplier in writing and the parties shall cooperate to resolve the dispute.",
+            "model_score": 0.938912034034729
+        },
+        {
+            "clause_number": "3.1",
+            "heading": "CONFIDENTIALITY",
+            "text": "Each party shall keep confidential all non-public business, technical, financial, and commercial information received from the other party.",
+            "model_score": 0.9981829524040222
+        },
+        {
+            "clause_number": "5.2",
+            "heading": "INTELLECTUAL PROPERTY",
+            "text": "Subject to payment of applicable fees, the Customer receives a non-exclusive license to use deliverables supplied under an applicable statement of work for its internal business purposes.",
+            "model_score": 0.9993435740470886
+        }
+    ],
+    "prediction_errors": 0
+}

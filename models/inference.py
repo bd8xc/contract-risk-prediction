@@ -7,18 +7,31 @@ from transformers import AutoTokenizer
 from models.config import Config
 from models.sliding_legalbert import SlidingWindowLegalBERT
 
+from processing.risk_validator import LegalRiskValidator
+from processing.risk_resolver import RiskResolver
+
 
 class ContractRiskPredictor:
     """
     Inference wrapper for the trained Sliding-Window LegalBERT model.
 
-    Takes raw legal text and returns:
-        - predicted risk class
-        - model score
-        - score for every class
+    Supports two prediction modes:
+
+    1. predict(text)
+       Raw LegalBERT model prediction.
+
+    2. predict_hybrid(text)
+       LegalBERT + deterministic legal-risk validator
+       + risk resolver.
 
     IMPORTANT:
-    The softmax scores are not calibrated probabilities.
+    Softmax scores are raw model outputs and are not
+    calibrated probabilities.
+
+    IMPORTANT:
+    The model class "Seed" represents the dataset's
+    baseline/original-pattern class. It must not be
+    interpreted as automatically meaning "safe".
     """
 
     LABEL_NAMES = [
@@ -101,7 +114,6 @@ class ContractRiskPredictor:
             weights_only=False,
         )
 
-        # Supports our full training checkpoint format
         if (
             isinstance(checkpoint, dict)
             and "model_state_dict" in checkpoint
@@ -113,7 +125,6 @@ class ContractRiskPredictor:
 
         else:
 
-            # Also supports raw state_dict checkpoints
             self.model.load_state_dict(
                 checkpoint
             )
@@ -124,8 +135,20 @@ class ContractRiskPredictor:
 
         self.model.eval()
 
+        ######################################################
+        # HYBRID RISK COMPONENTS
+        ######################################################
+
+        self.validator = LegalRiskValidator()
+
+        self.resolver = RiskResolver()
+
         print(
             "Model loaded successfully."
+        )
+
+        print(
+            "Hybrid legal-risk validator ready."
         )
 
     ##########################################################
@@ -172,10 +195,20 @@ class ContractRiskPredictor:
         )
 
     ##########################################################
-    # PREDICT
+    # RAW LEGALBERT PREDICTION
     ##########################################################
 
     def predict(self, text):
+        """
+        Run raw LegalBERT inference.
+
+        This method is intentionally preserved as the
+        model-only prediction API.
+
+        Existing evaluation and pipeline code can continue
+        using this method without being affected by the
+        deterministic rule layer.
+        """
 
         input_ids, attention_mask = (
             self._tokenize(text)
@@ -201,10 +234,6 @@ class ContractRiskPredictor:
 
         ######################################################
         # WINDOW COUNTS
-        #
-        # One input document/clause is being predicted.
-        # Therefore all generated windows belong to
-        # this one sample.
         ######################################################
 
         window_counts = torch.tensor(
@@ -270,7 +299,7 @@ class ContractRiskPredictor:
         }
 
         ######################################################
-        # RETURN RESULT
+        # RETURN RAW MODEL RESULT
         ######################################################
 
         return {
@@ -293,9 +322,144 @@ class ContractRiskPredictor:
                 ),
         }
 
+    ##########################################################
+    # HYBRID PREDICTION
+    ##########################################################
+
+    def predict_hybrid(self, text):
+        """
+        Run the complete hybrid risk pipeline:
+
+            LegalBERT
+                +
+            LegalRiskValidator
+                ↓
+            RiskResolver
+                ↓
+            Final risk result
+
+        Returns both the original ML prediction and the
+        final resolved risk classification.
+        """
+
+        ######################################################
+        # 1. RAW MODEL PREDICTION
+        ######################################################
+
+        model_result = self.predict(
+            text
+        )
+
+        ######################################################
+        # 2. DETERMINISTIC LEGAL-RISK VALIDATION
+        ######################################################
+
+        findings = self.validator.validate(
+            text
+        )
+
+        ######################################################
+        # 3. RESOLVE MODEL + RULE FINDINGS
+        ######################################################
+
+        resolved = self.resolver.resolve(
+
+            model_prediction=(
+                model_result[
+                    "prediction"
+                ]
+            ),
+
+            model_score=(
+                model_result[
+                    "model_score"
+                ]
+            ),
+
+            findings=findings,
+        )
+
+        ######################################################
+        # 4. BUILD COMPLETE RESULT
+        ######################################################
+
+        return {
+
+            # Final hybrid decision
+            "final_risk":
+                resolved[
+                    "final_risk"
+                ],
+
+            "display_risk":
+                resolved[
+                    "display_risk"
+                ],
+
+            "decision_source":
+                resolved[
+                    "decision_source"
+                ],
+
+            "review_recommended":
+                resolved[
+                    "review_recommended"
+                ],
+
+            "rule_override":
+                resolved[
+                    "rule_override"
+                ],
+
+            "agreement":
+                resolved[
+                    "agreement"
+                ],
+
+            "explanation":
+                resolved[
+                    "explanation"
+                ],
+
+            # Original LegalBERT result
+            "model_prediction":
+                model_result[
+                    "prediction"
+                ],
+
+            "model_display":
+                resolved[
+                    "model_display"
+                ],
+
+            "model_score":
+                model_result[
+                    "model_score"
+                ],
+
+            "class_scores":
+                model_result[
+                    "class_scores"
+                ],
+
+            "num_windows":
+                model_result[
+                    "num_windows"
+                ],
+
+            # Rule layer
+            "rule_risk":
+                resolved[
+                    "rule_risk"
+                ],
+
+            "findings":
+                findings,
+        }
+
 
 ##############################################################
-# OPTIONAL COMMAND-LINE TEST
+# COMMAND-LINE HYBRID TEST
 ##############################################################
 
 if __name__ == "__main__":
@@ -308,11 +472,15 @@ if __name__ == "__main__":
     )
 
     print(
-        "CONTRACT RISK PREDICTION"
+        "HYBRID CONTRACT RISK PREDICTION"
     )
 
     print(
         "=" * 70
+    )
+
+    print(
+        "\nLegalBERT + Legal Risk Validator + Risk Resolver"
     )
 
     while True:
@@ -351,27 +519,48 @@ if __name__ == "__main__":
 
         try:
 
-            result = predictor.predict(
+            result = predictor.predict_hybrid(
                 text
             )
 
+            ##################################################
+            # MODEL ANALYSIS
+            ##################################################
+
             print(
                 "\n"
-                + "-" * 70
+                + "=" * 70
             )
 
             print(
-                f"Prediction  : "
-                f"{result['prediction']}"
+                "MODEL ANALYSIS"
             )
 
             print(
-                f"Model score : "
+                "=" * 70
+            )
+
+            print(
+                f"Prediction      : "
+                f"{result['model_display']}"
+            )
+
+            if (
+                result["model_prediction"]
+                == "Seed"
+            ):
+
+                print(
+                    "Internal class  : Seed"
+                )
+
+            print(
+                f"Model score     : "
                 f"{result['model_score'] * 100:.2f}%"
             )
 
             print(
-                f"Windows     : "
+                f"Windows         : "
                 f"{result['num_windows']}"
             )
 
@@ -386,19 +575,154 @@ if __name__ == "__main__":
                 "class_scores"
             ].items():
 
+                display_label = (
+                    "Baseline"
+                    if label == "Seed"
+                    else label
+                )
+
                 print(
-                    f"{label:<8}: "
+                    f"{display_label:<10}: "
                     f"{score * 100:.2f}%"
                 )
 
+            ##################################################
+            # RULE ANALYSIS
+            ##################################################
+
             print(
-                "-" * 70
+                "\n"
+                + "=" * 70
             )
 
             print(
-                "\nNote: Scores are raw model "
-                "softmax outputs and are not "
-                "calibrated probabilities."
+                "RULE ANALYSIS"
+            )
+
+            print(
+                "=" * 70
+            )
+
+            if not result["findings"]:
+
+                print(
+                    "\nNo deterministic legal-risk "
+                    "rules triggered."
+                )
+
+            else:
+
+                print(
+                    f"\nHighest rule risk : "
+                    f"{result['rule_risk']}"
+                )
+
+                for index, finding in enumerate(
+                    result["findings"],
+                    start=1,
+                ):
+
+                    print(
+                        "\n"
+                        + "-" * 70
+                    )
+
+                    print(
+                        f"Finding {index}"
+                    )
+
+                    print(
+                        f"Rule   : "
+                        f"{finding['rule']}"
+                    )
+
+                    print(
+                        f"Risk   : "
+                        f"{finding['risk']}"
+                    )
+
+                    print(
+                        f"Reason : "
+                        f"{finding['reason']}"
+                    )
+
+                    if finding[
+                        "matched_text"
+                    ]:
+
+                        print(
+                            f"Match  : "
+                            f"{finding['matched_text']}"
+                        )
+
+            ##################################################
+            # FINAL HYBRID DECISION
+            ##################################################
+
+            print(
+                "\n"
+                + "=" * 70
+            )
+
+            print(
+                "FINAL HYBRID DECISION"
+            )
+
+            print(
+                "=" * 70
+            )
+
+            print(
+                f"\nFinal risk      : "
+                f"{result['display_risk'].upper()}"
+            )
+
+            print(
+                f"Decision source : "
+                f"{result['decision_source']}"
+            )
+
+            print(
+                f"Rule override   : "
+                f"{'Yes' if result['rule_override'] else 'No'}"
+            )
+
+            print(
+                f"Review required : "
+                f"{'Yes' if result['review_recommended'] else 'No'}"
+            )
+
+            print(
+                "\nExplanation:"
+            )
+
+            print(
+                result[
+                    "explanation"
+                ]
+            )
+
+            ##################################################
+            # WARNING
+            ##################################################
+
+            print(
+                "\n"
+                + "-" * 70
+            )
+
+            print(
+                "Note: Model scores are raw softmax outputs "
+                "and are not calibrated probabilities."
+            )
+
+            print(
+                "Baseline/Seed does not automatically mean "
+                "that a clause is risk-free."
+            )
+
+            print(
+                "-" * 70
             )
 
         except Exception as error:
