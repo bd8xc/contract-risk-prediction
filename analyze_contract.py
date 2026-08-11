@@ -7,7 +7,7 @@ from pathlib import Path
 from processing.document_processor import DocumentProcessor
 from processing.clause_segmenter import ClauseSegmenter
 from models.inference import ContractRiskPredictor
-
+from reporting.document_report import generate_pdf_report
 
 ##############################################################
 # CONFIGURATION

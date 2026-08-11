@@ -10,6 +10,8 @@ from llm.local_llm import (
     LocalLegalLLM,
 )
 
+from reporting.clause_report import generate_pdf_report
+
 
 class ContractRiskAnalysisSystem:
     """
@@ -274,16 +276,32 @@ class ContractRiskAnalysisSystem:
             )
         )
 
-        normalized_model = (
+        def normalize_risk(label):
+
+            if not label:
+                return ""
+
+            label = (
+                label
+                .strip()
+                .lower()
+            )
+
+            if label in {
+                "baseline",
+                "seed",
+            }:
+                return "low"
+
+            return label
+
+
+        normalized_model = normalize_risk(
             model_prediction
-            .strip()
-            .lower()
         )
 
-        normalized_llm = (
+        normalized_llm = normalize_risk(
             llm_prediction
-            .strip()
-            .lower()
         )
 
         agreement = (
@@ -1030,6 +1048,19 @@ if __name__ == "__main__":
                 result
             )
 
+            # ----------------------------
+            # GENERATE PDF HERE
+            # ----------------------------
+
+            pdf_path = generate_pdf_report(
+                result
+            )
+
+            print("\n" + "=" * 70)
+            print("PDF REPORT GENERATED")
+            print("=" * 70)
+            print(f"Saved to: {pdf_path}")
+
         except KeyboardInterrupt:
 
             print(
@@ -1057,6 +1088,7 @@ if __name__ == "__main__":
                 f"\n{type(error).__name__}: "
                 f"{error}"
             )
+            
 
             print(
                 "\nYou can enter another clause "
