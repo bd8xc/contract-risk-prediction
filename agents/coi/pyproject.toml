@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lexguard-coi"
+version = "2.0.0"
+description = "Bounded Neo4j conflict-of-interest analysis"
+requires-python = ">=3.11"
+dependencies = [] # Install all project dependencies from the repository root requirements.txt.
+
+[project.scripts]
+coi-check = "coi.__main__:main"
+
+[tool.setuptools]
+packages = ["coi", "coi.api", "coi.ldi", "coi.ldi.search", "coi.ldi.app", "coi.ldi.chunking", "coi.ldi.classification", "coi.ldi.conflict_detection", "coi.ldi.embeddings", "coi.ldi.explainability", "coi.ldi.ingestion", "coi.ldi.schemas", "coi.models"]
+package-dir = {"coi" = "."}
+

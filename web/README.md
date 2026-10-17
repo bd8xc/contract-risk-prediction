@@ -1,0 +1,7 @@
+# Web interface
+
+The root FastAPI app serves the Atelier frontend on the same origin as the APIs. Open `/` for the landing page, `/review` for the guided review, `/results` for the latest tab-local report, or `/workspaces` for the specialist tools. The individual workspaces are `/tools/conflicts`, `/tools/clauses`, `/tools/confidentiality`, and `/tools/litigation`. The previous JSON dashboard is available at `/advanced`; Swagger remains at `/docs`.
+
+HTML pages are separate documents. `styles.css` and `atelier.css` provide the base and visual styles, while `app.js` handles forms, API requests, report rendering, and theme selection. `atelier-motion.js` applies agent colors without an animation library. The original diagnostic UI uses `advanced.html`, `advanced.css`, and `advanced.js`.
+
+The browser calls `/api/status`, `/api/extract`, `/api/analyze`, `/api/coi/check`, `/api/cr/analyze`, `/api/cl/analyze`, and `/api/risk/assess`. The developer console also connects to `/api/le/predict` and indexed search and CL. Selecting an indexed endpoint changes its file control to index a PDF or DOCX through `/api/ingestion/embed-multi/`; indexed CL uses the uploaded filename as `doc_id`. Review results are kept in browser `sessionStorage` for the current tab; the server does not store reports. A report can be downloaded as JSON from `/results`. The interface does not have authentication, so use it only in an approved local environment. See the root [README](../README.md) for backend and model setup.

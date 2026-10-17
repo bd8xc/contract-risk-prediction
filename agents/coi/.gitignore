@@ -1,0 +1,11 @@
+﻿# Local COI state and generated artifacts
+.venv/
+.legacy-export/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+*.log
+logs/
+lexguard_db
+legacy-export.json
+migration_result.json
