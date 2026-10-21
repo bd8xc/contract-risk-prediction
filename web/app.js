@@ -142,13 +142,15 @@ function metric(label,value){const d=el('div','submetric');add(d,el('small','',l
 function itemList(items,format,max=40){const list=el('div','finding-list');items.slice(0,max).forEach((f,i)=>{const n=el('div','finding-row');const [a,b,c]=format(f,i);add(n,el('strong','',a));const right=el('span');right.textContent=b||'';if(c)right.className=`risk-tag ${c}`;n.append(right);list.append(n)});if(items.length>max)list.append(el('p','',`${items.length-max} more entries are in the exported report.`));return list}
 function detailsBlock(title,content){const d=el('details'),s=el('summary','',title);d.append(s,content);return d}
 function explain(card,text){if(text)card.append(el('p','',text));}
+const asList = value => Array.isArray(value) ? value : [];
+const finiteScore = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value) : null;
 function renderCoi(data){const d=data||{},c=el('article','agent-report');c.append(cardHead('Conflict of interest','01 / COI',labelStatus(d)));
   const sub=el('div','submetric-row');add(sub,metric('VERIFIED CONFLICT',d.status==='complete'?(d.conflict_detected?'Detected':'Not found in graph'):'Undetermined'),metric('SEVERITY',d.severity||'Not available'));c.append(sub);
   if(d.status==='complete'&&!d.conflict_detected)explain(c,'No verified conflict path was returned within the configured graph. This is not universal clearance.');
   if(d.skipped_reason||d.reason)explain(c,d.skipped_reason||d.reason);
   if(Array.isArray(d.conflict_path)&&d.conflict_path.length)c.append(detailsBlock('View relationship path',el('p','',d.conflict_path.join(' → '))));
   if(d.unresolved_entities?.length)c.append(detailsBlock(`Unresolved entities (${d.unresolved_entities.length})`,itemList(d.unresolved_entities,x=>[x,'Needs verification'])));
-  if(d.findings?.length)c.append(detailsBlock(`Additional graph findings (${d.findings.length})`,itemList(d.findings,x=>[x.description||x.type||'Graph finding',x.severity||''])));
+  if(asList(d.findings).length)c.append(detailsBlock(`Graph findings (${d.findings.length})`,itemList(d.findings,x=>[asList(x.path).join(' → ')||'Graph finding',`${x.severity||'Unknown severity'} · ${x.verified?'Verified':'Unverified'}`])));
   return c;}
 function renderCr(data){const d=data||{},c=el('article','agent-report'),clauses=Array.isArray(d.clauses)?d.clauses:[],attempted=clauses.length,classified=clauses.filter(x=>['Seed','Low','Medium','High'].includes(x?.model?.prediction)).length;
   c.append(cardHead('Clause risk','02 / CR',labelStatus(d)));
@@ -165,39 +167,43 @@ function renderCr(data){const d=data||{},c=el('article','agent-report'),clauses=
   return c;}
 function renderCl(data){const d=data||{},c=el('article','agent-report'),findings=Array.isArray(d.findings)?d.findings:[];
   c.append(cardHead('Confidentiality leakage','03 / CL',labelStatus(d)));
-  const sub=el('div','submetric-row');add(sub,metric('SENSITIVE SIGNALS',d.sensitive_data_detected===true?'Detected':d.sensitive_data_detected===false?'Not detected':'Unknown'),metric('FINDINGS',clean(d.total_findings??findings.length)));c.append(sub);
-  explain(c,d.risk_level?`Reported risk level: ${d.risk_level}. Values are redacted in the API response.`:'Returned findings contain redacted values. A clean scan is not a guarantee.');
+  const sub=el('div','submetric-row');add(sub,metric('SENSITIVE SIGNALS',d.sensitive_data_detected===true?'Detected':d.sensitive_data_detected===false?'Not detected':'Unknown'),metric('FINDINGS',clean(d.total_findings??findings.length)),metric('RISK SCORE',d.risk_score==null?'Not available':`${d.risk_score} / 100`),metric('RISK LEVEL',d.risk_level||'Not available'));c.append(sub);
+  if(d.status==='complete')explain(c,d.risk_level?`Reported risk level: ${d.risk_level}. Values are redacted in the API response.`:'A clean scan is not a guarantee.');
   if(d.reason)explain(c,d.reason);
   if(findings.length)c.append(detailsBlock(`View ${findings.length} reported findings`,itemList(findings,f=>[f.type||f.entity_type||'Sensitive finding',[f.sensitivity,f.clause_id?`Clause ${f.clause_id}`:''].filter(Boolean).join(' · ')])));
   return c;}
-function renderLe(data,status){const d=data||{},c=el('article','agent-report');c.append(cardHead('Litigation exposure','04 / LE',status||((data&&d.litigation_probability!==undefined)?'complete':'skipped')));
-  const score=Number(d.litigation_probability);
-  if(data&&Number.isFinite(score)){
+function renderLe(data,status){const d=data||{},c=el('article','agent-report'),state=status||((data&&d.litigation_probability!==undefined)?'complete':'skipped');c.append(cardHead('Litigation exposure','04 / LE',labelStatus({status:state})));
+  const score=finiteScore(d.litigation_probability);
+  if(data&&score!==null){
     const gauge=el('div','exposure-gauge'),ring=el('div','gauge-ring'),pct=Math.max(0,Math.min(100,score*100));ring.style.setProperty('--score',`${pct}%`);ring.append(el('strong','',`${pct.toFixed(1)}%`));const copy=el('div','gauge-copy');add(copy,el('strong','',`Model band: ${d.risk_level||'not supplied'}`),el('p','', 'Synthetic-trained model output, not a calibrated estimate of actual litigation likelihood.'));gauge.append(ring,copy);c.append(gauge);
     if(d.shap_explanation&&typeof d.shap_explanation==='object'){
       const entries=Object.entries(d.shap_explanation).filter(([k,v])=>Number.isFinite(Number(v))).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
       if(entries.length)c.append(detailsBlock('Inspect model contribution values',itemList(entries,([k,v])=>[k.replaceAll('_',' '),Number(v).toFixed(4)])));
     }
+    if(d.features_used&&typeof d.features_used==='object')c.append(detailsBlock('View model inputs',el('pre','raw-output',JSON.stringify(d.features_used,null,2))));
+    explain(c,d.interpretation);
   }else explain(c,clean(status||'Not run')+'. A completed COI check and independently measured template deviation are required for the coordinated review.');
   return c;}
-function createChart(cr){const root=el('div'),clauses=cr?.clauses||[],valid=clauses.map(x=>x?.model?.prediction).filter(x=>['Seed','Low','Medium','High'].includes(x));if(!valid.length){root.append(el('p','chart-empty','No clause classifications available for a distribution chart.'));return root;}
+function createChart(cr){const root=el('div'),clauses=asList(cr?.clauses),valid=clauses.map(x=>x?.model?.prediction).filter(x=>['Seed','Low','Medium','High'].includes(x));if(!valid.length){root.append(el('p','chart-empty','No clause classifications available for a distribution chart.'));return root;}
   ['High','Medium','Low','Seed'].forEach(name=>{const count=valid.filter(x=>x===name).length,row=el('div','chart-row'),track=el('div','chart-track'),fill=el('div',`chart-fill ${name.toLowerCase()}`);fill.style.width=`${100*count/valid.length}%`;track.append(fill);add(row,el('span','',name==='Seed'?'Baseline':name),track,el('b','',count));root.append(row);});return root;}
 function summaryCell(code,value,desc){const c=el('div','summary-cell');add(c,el('span','small-index',code),el('strong','',value),el('span','',desc));return c;}
 function resultsInit(){const root=$('#result-content');if(!root)return;const empty=$('#empty-results');let bundle=null;
   try{bundle=JSON.parse(sessionStorage.getItem(SUMMARY_KEY)||'null')}catch{}
-  if(!bundle?.result||!bundle.result.coi){empty.hidden=false;root.hidden=true;$('#download-result').disabled=true;return;}
+  if(!bundle?.result||typeof bundle.result!=='object'||Array.isArray(bundle.result)){empty.hidden=false;root.hidden=true;$('#download-result').disabled=true;return;}
   const d=bundle.result;root.hidden=false;empty.hidden=true;
   $('#report-id').textContent=`REVIEW / ${d.doc_id||'UNTITLED'}`;
   $('#report-subtitle').textContent=d.status==='complete'?'All four agent steps returned completed results. Findings still require human interpretation.':'One or more checks did not complete. Review unavailable signals below before making a decision.';
   $('#report-state').textContent=d.status==='complete'?'All four agents completed':'Partial or incomplete coverage';
   const summary=$('#result-summary-grid');summary.replaceChildren();
   const cr=d.cr||{},cl=d.cl||{},coi=d.coi||{},le=d.le;
-  const classifications=(cr.clauses||[]).filter(x=>['Seed','Low','Medium','High'].includes(x?.model?.prediction));
-  add(summary,summaryCell('01 / COI',coi.status==='complete'?(coi.conflict_detected?'Conflict found':'No path found'):'Incomplete','Within configured graph only'),summaryCell('02 / CR',String(classifications.length),'Classified clauses'),summaryCell('03 / CL',String(cl.total_findings??cl.findings?.length??'—'),'Sensitive findings'),summaryCell('04 / LE',le&&Number.isFinite(Number(le.litigation_probability))?`${(le.litigation_probability*100).toFixed(1)}%`:'Not run','Synthetic model signal · uncalibrated'));
+  const classifications=asList(cr.clauses).filter(x=>['Seed','Low','Medium','High'].includes(x?.model?.prediction));
+  const leScore=finiteScore(le?.litigation_probability);
+  add(summary,summaryCell('01 / COI',coi.status==='complete'?(coi.conflict_detected?'Conflict found':'No path found'):'Incomplete','Within configured graph only'),summaryCell('02 / CR',String(classifications.length),'Classified clauses'),summaryCell('03 / CL',String(cl.total_findings??cl.findings?.length??'—'),'Sensitive findings'),summaryCell('04 / LE',leScore===null?'Not run':`${(leScore*100).toFixed(1)}%`,'Synthetic model signal · uncalibrated'));
   const details=$('#report-details');details.replaceChildren(renderCoi(coi),renderCr(cr),renderCl(cl),renderLe(le,d.le_status));
   const chart=$('#classification-chart');chart.replaceChildren(createChart(cr));
-  const reasons=$('#review-reasons');reasons.replaceChildren();const list=d.decision?.reasons||['Every result requires human assessment.'];list.forEach(reason=>reasons.append(el('li','',reason)));
-  (d.decision?.limitations||[]).forEach(reason=>reasons.append(el('li','',reason)));
+  const reasons=$('#review-reasons');reasons.replaceChildren();const list=asList(d.decision?.reasons);(list.length?list:['Every result requires human assessment.']).forEach(reason=>reasons.append(el('li','',reason)));
+  asList(d.decision?.limitations).forEach(reason=>reasons.append(el('li','',reason)));
+  $('#raw-result').textContent=JSON.stringify(d,null,2);
   $('#download-result').addEventListener('click',()=>downloadableJson(d,`${d.doc_id||'lexguard'}-report.json`));
   $('#clear-report').addEventListener('click',()=>{sessionStorage.removeItem(SUMMARY_KEY);window.location.reload()});
 }
